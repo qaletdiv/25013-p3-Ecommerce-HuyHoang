@@ -86,18 +86,11 @@ exports.getMe = async (req, res, next) => {
 
 exports.updateMe = async (req, res, next) => {
     try {
-        const { username, email, currentPassword, newPassword } = req.body;
+        const { username, email, address } = req.body;
         const user = await User.scope('withPassword').findByPk(req.user.id);
 
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
-        }
-
-        if (newPassword && !currentPassword) {
-            return res.status(400).json({ message: 'Current password is required to change password' });
-        }
-        if (newPassword && !(await bcrypt.compare(currentPassword, user.password))) {
-            return res.status(401).json({ message: 'Current password is incorrect' });
         }
 
         const updates = {};
@@ -122,8 +115,8 @@ exports.updateMe = async (req, res, next) => {
             }
             updates.email = normalizedEmail;
         }
-        if (newPassword) {
-            updates.password = await bcrypt.hash(newPassword, 10);
+        if (address !== undefined) {
+            updates.address = address.trim();
         }
 
         if (Object.keys(updates).length > 0) {
@@ -132,6 +125,23 @@ exports.updateMe = async (req, res, next) => {
 
         const safeUser = await User.findByPk(user.id);
         return res.json({ message: 'Profile updated successfully', user: safeUser });
+    } catch (error) {
+        next(error);
+    }
+};
+
+exports.changePassword = async (req, res, next) => {
+    try {
+        const { currentPassword, newPassword } = req.body;
+        if (!currentPassword || !newPassword) {
+            return res.status(400).json({ message: 'Vui lòng nhập đủ mật khẩu hiện tại và mật khẩu mới' });
+        }
+        const user = await User.scope('withPassword').findByPk(req.user.id);
+        if (!user || !(await bcrypt.compare(currentPassword, user.password))) {
+            return res.status(401).json({ message: 'Mật khẩu hiện tại không chính xác' });
+        }
+        await user.update({ password: await bcrypt.hash(newPassword, 10) });
+        return res.json({ message: 'Đổi mật khẩu thành công' });
     } catch (error) {
         next(error);
     }
@@ -160,7 +170,8 @@ exports.updateMyAvatar = async (req, res, next) => {
     try {
         const avatarPath = `/images/${req.file.processedFileName}`;
         const updatedUser = await User.update({ avatar: avatarPath }, { where: { id: req.user.id }});
-        res.json({ message: 'Avatar updated successfully' });
+        const safeUser = await User.findByPk(req.user.id);
+        res.json({ message: 'Avatar updated successfully', user: safeUser });
     } catch (error) {
         next(error);
     }

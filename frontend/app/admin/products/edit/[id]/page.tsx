@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import AdminShell from "../../../components/AdminShell";
@@ -7,6 +8,26 @@ import AdminShell from "../../../components/AdminShell";
 const API = process.env.NEXT_PUBLIC_API_BASE;
 
 type VariantRow = { id?: number; size: string; color: string; price: string; stock: string };
+type ProductOptions = { sizes: string[]; colors: string[] };
+type CategoryOption = { id: number; name: string };
+type ProductResponse = {
+  id: string | number;
+  name: string;
+  slug: string;
+  categoryId: string | number;
+  description?: string;
+  thumbnail?: string;
+  images?: string[];
+  specs?: string[];
+  hot?: boolean;
+  variants?: Array<{
+    id?: number;
+    size: string | { name: string };
+    color: string | { name: string };
+    price: number;
+    stock: number;
+  }>;
+};
 
 export default function AdminProductEditPage({
   params,
@@ -17,16 +38,40 @@ export default function AdminProductEditPage({
   const [id, setId] = useState("");
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
-  const [categoryId, setCategoryId] = useState("1");
+  const [categoryId, setCategoryId] = useState("");
   const [description, setDescription] = useState("");
   const [thumbnail, setThumbnail] = useState("");
   const [images, setImages] = useState("");
   const [specs, setSpecs] = useState("");
   const [hot, setHot] = useState(false);
   const [variants, setVariants] = useState<VariantRow[]>([]);
+  const [options, setOptions] = useState<ProductOptions>({ sizes: [], colors: [] });
+  const [categories, setCategories] = useState<CategoryOption[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    fetch(`${API}/api/categories`)
+      .then((response) => response.json())
+      .then((data: CategoryOption[]) => setCategories(data))
+      .catch(() => setError("Không thể tải danh sách danh mục"));
+  }, []);
+
+  useEffect(() => {
+    fetch(`${API}/api/products/options`)
+      .then((response) => {
+        if (!response.ok) throw new Error("Không thể tải danh sách biến thể");
+        return response.json();
+      })
+      .then((data: { sizes?: Array<{ name: string }>; colors?: Array<{ name: string }> }) => {
+        setOptions({
+          sizes: (data.sizes || []).map((item) => item.name),
+          colors: (data.colors || []).map((item) => item.name),
+        });
+      })
+      .catch(() => setError("Không thể tải danh sách size và màu từ cơ sở dữ liệu"));
+  }, []);
 
   useEffect(() => {
     params.then((p) => setId(p.id));
@@ -37,19 +82,19 @@ export default function AdminProductEditPage({
     // lấy sản phẩm theo id qua danh sách
     fetch(`${API}/api/products`, { cache: "no-store" })
       .then((r) => r.json())
-      .then((list: any[]) => {
+    .then((list: ProductResponse[]) => {
         const prod = list.find((p) => String(p.id) === id);
         if (prod) {
           setName(prod.name);
           setSlug(prod.slug);
-          setCategoryId(prod.categoryId);
+          setCategoryId(String(prod.categoryId));
           setDescription(prod.description || "");
           setThumbnail(prod.thumbnail || "");
           setImages((prod.images || []).join("\n"));
           setSpecs((prod.specs || []).join("\n"));
           setHot(!!prod.hot);
           setVariants(
-            (prod.variants || []).map((v: any) => ({
+            (prod.variants || []).map((v) => ({
               id: v.id,
               size: typeof v.size === "object" ? v.size.name : v.size,
               color: typeof v.color === "object" ? v.color.name : v.color,
@@ -109,11 +154,12 @@ export default function AdminProductEditPage({
 
   return (
     <AdminShell>
-    <main className="mx-auto max-w-3xl">
+    <main className="mx-auto max-w-4xl">
       <div className="mb-10 flex items-end justify-between gap-6">
         <div>
           <p className="mb-3 text-[10px] uppercase tracking-[0.3em] text-neutral-400">Product studio</p>
-          <h1 className="text-4xl font-light">Sửa Sản Phẩm</h1>
+          <h1 className="text-4xl font-light tracking-tight">Sửa Sản Phẩm</h1>
+          <p className="mt-3 text-sm text-neutral-500">Cập nhật thông tin sản phẩm và các biến thể đang bán.</p>
         </div>
         {thumbnail ? (
           <img
@@ -128,22 +174,27 @@ export default function AdminProductEditPage({
         )}
       </div>
       {error && <p className="text-red-600 mb-4">{error}</p>}
-      <form onSubmit={handleSubmit} className="space-y-5">
+      <form onSubmit={handleSubmit} className="space-y-6 rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm dark:border-neutral-800 dark:bg-[#171717] sm:p-8">
         <div className="grid grid-cols-2 gap-4">
           <Field label="Tên" value={name} onChange={setName} required />
           <Field label="Slug" value={slug} onChange={setSlug} required />
         </div>
         <div>
-          <label className="block text-sm mb-1">Danh mục</label>
+          <div className="mb-1 flex items-center justify-between">
+            <label htmlFor="product-category" className="block text-sm">Danh mục <span className="text-red-500">*</span></label>
+            <Link href="/admin/categories" className="text-xs text-blue-500 hover:underline">Quản lý danh mục</Link>
+          </div>
           <select
+            id="product-category"
             value={categoryId}
             onChange={(e) => setCategoryId(e.target.value)}
-            className="w-full border px-3 py-2"
+            className="w-full border px-3 py-2 dark:border-neutral-700 dark:bg-[#151515]"
+            required
           >
-            <option value="1">Thời trang nam</option>
-            <option value="2">Thời trang nữ</option>
-            <option value="3">Phụ kiện</option>
-            <option value="4">Giày dép</option>
+            <option value="">Chọn danh mục</option>
+            {categories.map((category) => (
+              <option key={category.id} value={category.id}>{category.name}</option>
+            ))}
           </select>
         </div>
         <div>
@@ -151,7 +202,7 @@ export default function AdminProductEditPage({
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            className="w-full border px-3 py-2"
+            className="w-full border px-3 py-2 outline-none transition focus:border-black focus:ring-2 focus:ring-black/5 dark:border-neutral-700 dark:bg-[#151515] dark:focus:border-white"
             rows={3}
           />
         </div>
@@ -201,25 +252,65 @@ export default function AdminProductEditPage({
         </label>
 
         <div>
-          <p className="text-sm mb-2 font-medium">Biến thể và tồn kho</p>
+          <p className="text-sm mb-2 font-medium">Biến thể (size / màu / giá / tồn kho)</p>
           {variants.map((v, i) => (
-            <div key={i} className="flex gap-2 mb-2 text-sm text-neutral-600">
-              <span className="w-20">Size: {v.size}</span>
-              <span className="w-28">Màu: {v.color}</span>
-              <span className="w-28">Giá: {v.price}</span>
-              <label className="flex items-center gap-2">
-                Kho:
-                <input
-                  type="number"
-                  min="0"
-                  value={v.stock}
-                  onChange={(event) => updateVariant(i, "stock", event.target.value)}
-                  className="w-20 border px-2 py-1"
-                />
-              </label>
+            <div key={v.id ?? `new-${i}`} className="mb-2 flex items-center gap-2">
+              <select
+                value={v.size}
+                onChange={(event) => updateVariant(i, "size", event.target.value)}
+                className="w-20 border px-2 py-1"
+                required
+              >
+                <option value="">Size</option>
+                {[...new Set([...options.sizes, v.size].filter(Boolean))].map((size) => (
+                  <option key={size} value={size}>{size}</option>
+                ))}
+              </select>
+              <select
+                value={v.color}
+                onChange={(event) => updateVariant(i, "color", event.target.value)}
+                className="w-28 border px-2 py-1"
+                required
+              >
+                <option value="">Màu</option>
+                {[...new Set([...options.colors, v.color].filter(Boolean))].map((color) => (
+                  <option key={color} value={color}>{color}</option>
+                ))}
+              </select>
+              <input
+                type="number"
+                min="0"
+                placeholder="Giá"
+                value={v.price}
+                onChange={(event) => updateVariant(i, "price", event.target.value)}
+                className="w-28 border px-2 py-1"
+              />
+              <input
+                type="number"
+                min="0"
+                placeholder="Tồn kho"
+                value={v.stock}
+                onChange={(event) => updateVariant(i, "stock", event.target.value)}
+                className="w-24 border px-2 py-1"
+              />
+              <button
+                type="button"
+                onClick={() => setVariants((prev) => prev.filter((_, index) => index !== i))}
+                className="text-sm text-red-500"
+              >
+                Xóa
+              </button>
             </div>
           ))}
-          <p className="text-xs text-neutral-400">Thay đổi tồn kho rồi bấm Cập nhật để lưu.</p>
+          <button
+            type="button"
+            onClick={() =>
+              setVariants((prev) => [...prev, { size: "", color: "", price: "0", stock: "0" }])
+            }
+            className="text-sm text-blue-500"
+          >
+            + Thêm biến thể
+          </button>
         </div>
 
         <button

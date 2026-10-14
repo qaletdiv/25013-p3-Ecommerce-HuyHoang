@@ -21,6 +21,8 @@ export interface Product {
     id: string;
     name: string;
     slug: string;
+    hidden?: boolean;
+    createdAt?: string;
     description: string;
     categoryId?: number;
     thumbnail: string;

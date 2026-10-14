@@ -4,6 +4,7 @@ import "./globals.css";
 
 import Header from "./components/header";
 import Footer from "./components/footer";
+import SiteBanner from "./components/siteBanner";
 import { CartProvider } from "./context/CartContext";
 import { ToastProvider } from "./context/ToastContext";
 import { ThemeProvider } from "./context/ThemeContext";
@@ -38,6 +39,7 @@ export default function RootLayout({
           <CartProvider>
             <ToastProvider>
               <Header />
+              <SiteBanner />
 
               <main className="flex-1">
                 {children}

@@ -5,10 +5,13 @@ import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { useCart } from "../context/CartContext";
 import { useTheme } from "../context/ThemeContext";
+import { Search, X } from "lucide-react";
 
 export default function Header() {
     const [open, setOpen] = useState(false);
     const [user, setUser] = useState<any>(null);
+    const [query, setQuery] = useState("");
+    const [results, setResults] = useState<{ id: string; name: string; slug: string; thumbnail?: string }[]>([]);
 
     const pathname = usePathname();
     const { cart } = useCart();
@@ -35,6 +38,21 @@ export default function Header() {
         }
     }, [pathname]);
 
+    useEffect(() => {
+        const value = query.trim();
+        if (!value) {
+            setResults([]);
+            return;
+        }
+        const timer = window.setTimeout(() => {
+            fetch(`${process.env.NEXT_PUBLIC_API_BASE}/api/products`)
+                .then((response) => response.json())
+                .then((data) => setResults(Array.isArray(data) ? data.filter((product) => product.name?.toLowerCase().includes(value.toLowerCase())).slice(0, 5) : []))
+                .catch(() => setResults([]));
+        }, 250);
+        return () => window.clearTimeout(timer);
+    }, [query]);
+
     const logout = () => {
         localStorage.removeItem("user");
         localStorage.removeItem("token");
@@ -44,10 +62,12 @@ export default function Header() {
         window.location.href = "/";
     };
 
+    if (isAdminArea) return null;
+
     return (
         <header className="w-full bg-white border-b border-neutral-200 sticky top-0 z-50">
             <div className="max-w-7xl mx-auto px-8">
-                <div className="flex items-center justify-between h-20">
+                <div className="flex min-h-20 items-center justify-between gap-5 py-3">
 
                     <Link
                         href="/"
@@ -56,14 +76,21 @@ export default function Header() {
                         HyperLane
                     </Link>
 
-                    <nav className="hidden md:flex gap-10 text-sm uppercase tracking-[0.18em] text-neutral-500">
+                    <nav className="hidden lg:flex gap-8 text-xs uppercase tracking-[0.18em] text-neutral-500">
                         <Link href="/">Trang Chủ</Link>
                         <Link href={isAdminUser || isAdminArea ? "/admin/products" : "/sanpham"}>Sản Phẩm</Link>
                         <Link href="/about">Giới Thiệu</Link>
                         <Link href="/contact">Liên Hệ</Link>
                     </nav>
 
-                    <div className="hidden md:flex items-center gap-6">
+                    <div className="relative hidden md:block md:w-48 lg:w-64">
+                        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
+                        <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm sản phẩm..." aria-label="Tìm sản phẩm" className="h-10 w-full rounded-full border border-neutral-200 bg-neutral-50 pl-9 pr-9 text-xs outline-none transition focus:border-neutral-900 focus:bg-white dark:border-neutral-700 dark:bg-[#181818] dark:focus:border-white" />
+                        {query && <button type="button" aria-label="Xóa tìm kiếm" onClick={() => setQuery("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400"><X size={14} /></button>}
+                        {query && <div className="absolute left-0 right-0 top-12 z-50 overflow-hidden rounded-2xl border border-neutral-200 bg-white p-2 shadow-xl dark:border-neutral-700 dark:bg-[#181818]">{results.length ? results.map((product) => <Link key={product.id} href={`/sanpham/${product.slug}`} onClick={() => setQuery("")} className="flex items-center gap-3 rounded-xl p-2 text-xs transition hover:bg-neutral-100 dark:hover:bg-neutral-800"><img src={product.thumbnail || "/placeholder-product.svg"} alt="" className="h-10 w-8 rounded object-cover" /><span>{product.name}</span></Link>) : <p className="p-3 text-xs text-neutral-500">Không tìm thấy sản phẩm</p>}</div>}
+                    </div>
+
+                    <div className="hidden md:flex items-center gap-5">
                         <button
                             type="button"
                             onClick={toggleTheme}

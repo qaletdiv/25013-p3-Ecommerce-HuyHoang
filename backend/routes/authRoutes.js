@@ -33,6 +33,10 @@ router.patch('/me',
     handleValidationErrors,
     authController.updateMe);
 
+router.patch('/change-password',
+    authenticateToken,
+    authController.changePassword);
+
 
 router.patch('/update-my-avatar',
     authenticateToken,

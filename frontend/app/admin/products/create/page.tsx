@@ -1,28 +1,58 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import AdminShell from "../../components/AdminShell";
 
 const API = process.env.NEXT_PUBLIC_API_BASE;
 
 type VariantRow = { size: string; color: string; price: string; stock: string };
+type ProductOptions = { sizes: string[]; colors: string[] };
+type CategoryOption = { id: number; name: string };
 
 export default function AdminProductCreatePage() {
   const router = useRouter();
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
-  const [categoryId, setCategoryId] = useState("1");
+  const [categoryId, setCategoryId] = useState("");
   const [description, setDescription] = useState("");
   const [thumbnail, setThumbnail] = useState("");
   const [images, setImages] = useState("");
   const [specs, setSpecs] = useState("");
   const [hot, setHot] = useState(false);
   const [variants, setVariants] = useState<VariantRow[]>([
-    { size: "M", color: "Đen", price: "0", stock: "0" },
+    { size: "", color: "", price: "0", stock: "0" },
   ]);
+  const [options, setOptions] = useState<ProductOptions>({ sizes: [], colors: [] });
+  const [categories, setCategories] = useState<CategoryOption[]>([]);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    fetch(`${API}/api/categories`)
+      .then((response) => response.json())
+      .then((data: CategoryOption[]) => {
+        setCategories(data);
+        if (data[0]) setCategoryId(String(data[0].id));
+      })
+      .catch(() => setError("Không thể tải danh sách danh mục"));
+  }, []);
+
+  useEffect(() => {
+    fetch(`${API}/api/products/options`)
+      .then((response) => {
+        if (!response.ok) throw new Error("Không thể tải danh sách biến thể");
+        return response.json();
+      })
+      .then((data: { sizes?: Array<{ name: string }>; colors?: Array<{ name: string }> }) => {
+        setOptions({
+          sizes: (data.sizes || []).map((item) => item.name),
+          colors: (data.colors || []).map((item) => item.name),
+        });
+      })
+      .catch(() => setError("Không thể tải danh sách size và màu từ cơ sở dữ liệu"));
+  }, []);
 
   const updateVariant = (i: number, field: keyof VariantRow, value: string) => {
     setVariants((prev) => prev.map((v, idx) => (idx === i ? { ...v, [field]: value } : v)));
@@ -74,25 +104,34 @@ export default function AdminProductCreatePage() {
 
   return (
     <AdminShell>
-    <main className="mx-auto max-w-3xl">
-      <h1 className="text-4xl font-light mb-10">Thêm Sản Phẩm</h1>
+    <main className="mx-auto max-w-4xl">
+      <div className="mb-10">
+        <p className="mb-3 text-[10px] uppercase tracking-[0.3em] text-neutral-400">Catalogue studio</p>
+        <h1 className="text-4xl font-light tracking-tight">Thêm Sản Phẩm</h1>
+        <p className="mt-3 text-sm text-neutral-500">Tạo sản phẩm mới và cấu hình các biến thể trong một bước.</p>
+      </div>
       {error && <p className="text-red-600 mb-4">{error}</p>}
-      <form onSubmit={handleSubmit} className="space-y-5">
+      <form onSubmit={handleSubmit} className="space-y-6 rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm dark:border-neutral-800 dark:bg-[#171717] sm:p-8">
         <div className="grid grid-cols-2 gap-4">
           <Field label="Tên" value={name} onChange={setName} required />
           <Field label="Slug" value={slug} onChange={setSlug} required />
         </div>
         <div>
-          <label className="block text-sm mb-1">Danh mục</label>
+          <div className="mb-1 flex items-center justify-between">
+            <label htmlFor="product-category" className="block text-sm">Danh mục <span className="text-red-500">*</span></label>
+            <Link href="/admin/categories" className="text-xs text-blue-500 hover:underline">Quản lý danh mục</Link>
+          </div>
           <select
+            id="product-category"
             value={categoryId}
             onChange={(e) => setCategoryId(e.target.value)}
-            className="w-full border px-3 py-2"
+            className="w-full border px-3 py-2 dark:border-neutral-700 dark:bg-[#151515]"
+            required
           >
-            <option value="1">Thời trang nam</option>
-            <option value="2">Thời trang nữ</option>
-            <option value="3">Phụ kiện</option>
-            <option value="4">Giày dép</option>
+            <option value="">Chọn danh mục</option>
+            {categories.map((category) => (
+              <option key={category.id} value={category.id}>{category.name}</option>
+            ))}
           </select>
         </div>
         <div>
@@ -100,7 +139,7 @@ export default function AdminProductCreatePage() {
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            className="w-full border px-3 py-2"
+            className="w-full border px-3 py-2 outline-none transition focus:border-black focus:ring-2 focus:ring-black/5 dark:border-neutral-700 dark:bg-[#151515] dark:focus:border-white"
             rows={3}
           />
         </div>
@@ -153,18 +192,24 @@ export default function AdminProductCreatePage() {
           <p className="text-sm mb-2 font-medium">Biến thể (size / màu / giá / tồn kho)</p>
           {variants.map((v, i) => (
             <div key={i} className="flex gap-2 mb-2 items-center">
-              <input
-                placeholder="Size"
+              <select
                 value={v.size}
                 onChange={(e) => updateVariant(i, "size", e.target.value)}
                 className="w-20 border px-2 py-1"
-              />
-              <input
-                placeholder="Màu"
+                required
+              >
+                <option value="">Size</option>
+                {options.sizes.map((size) => <option key={size} value={size}>{size}</option>)}
+              </select>
+              <select
                 value={v.color}
                 onChange={(e) => updateVariant(i, "color", e.target.value)}
                 className="w-28 border px-2 py-1"
-              />
+                required
+              >
+                <option value="">Màu</option>
+                {options.colors.map((color) => <option key={color} value={color}>{color}</option>)}
+              </select>
               <input
                 placeholder="Giá"
                 value={v.price}

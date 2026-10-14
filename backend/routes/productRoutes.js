@@ -12,12 +12,12 @@ const {
 } = require('../validators/productValidator');
 const {
     getAllProducts,
+    getProductOptions,
     getProductById,
     createProduct,
     getRelatedProductsBySlug,
     getProductBySlug,
-    updateProduct,
-    deleteProduct
+    updateProduct
 } = require('../controllers/productController');
 
 router.use(express.json()); // Middleware để phân tích JSON body
@@ -29,7 +29,12 @@ const productIncludeOptions = [
 
 
 // Lấy danh sách sản phẩm, hỗ trợ lọc theo query string
+router.get('/products/admin', authenticateToken, authorizeRole('admin'), (req, res, next) => {
+    req.includeHidden = true;
+    getAllProducts(req, res, next);
+});
 router.get('/products', getAllProducts);
+router.get('/products/options', getProductOptions);
 
 // // Lấy chi tiết sản phẩm theo ID
 // router.get('/products/:id', commonIdValidatorRules(), validationErrorHandler, getProductById);
@@ -59,16 +64,6 @@ router.put(
     updateProductValidatorRules(),
     validationErrorHandler,
     updateProduct
-);
-
-// Xóa sản phẩm theo ID
-router.delete(
-    '/products/:id',
-    authenticateToken,
-    authorizeRole('admin'),
-    commonIdValidatorRules(),
-    validationErrorHandler,
-    deleteProduct
 );
 
 module.exports = router;

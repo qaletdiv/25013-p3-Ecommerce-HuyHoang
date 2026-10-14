@@ -1,9 +1,23 @@
 const { Category, Product } = require('../models');
 
+const makeSlug = (value) => value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
 const getAllCategories = async (req, res, next) => {
     try {
         const categories = await Category.findAll({
-            include: [{ model: Product, as: 'products' }]
+            order: [['name', 'ASC']],
+            include: [{
+                model: Product,
+                as: 'products',
+                attributes: ['id', 'name', 'slug', 'categoryId'],
+                required: false
+            }]
         });
         res.json(categories);
     } catch (error) {
@@ -14,7 +28,12 @@ const getAllCategories = async (req, res, next) => {
 const getCategoryById = async (req, res, next) => {
     try {
         const category = await Category.findByPk(req.params.id, {
-            include: [{ model: Product, as: 'products' }]
+            include: [{
+                model: Product,
+                as: 'products',
+                attributes: ['id', 'name', 'slug', 'categoryId'],
+                required: false
+            }]
         });
         if (!category) {
             return res.status(404).send('Không tìm thấy danh mục');
@@ -27,8 +46,11 @@ const getCategoryById = async (req, res, next) => {
 
 const createCategory = async (req, res, next) => {
     try {
-        const { name, description } = req.body;
-        const newCategory = await Category.create({ name, description });
+        const { name, slug } = req.body;
+        const newCategory = await Category.create({
+            name,
+            slug: slug || makeSlug(name)
+        });
         res.status(201).json(newCategory);
     } catch (error) {
         if (error.name === 'SequelizeValidationError') {
@@ -44,7 +66,9 @@ const createCategory = async (req, res, next) => {
 
 const updateCategory = async (req, res, next) => {
     try {
-        const [updatedRows] = await Category.update(req.body, {
+        const updates = { ...req.body };
+        if (updates.name && !updates.slug) updates.slug = makeSlug(updates.name);
+        const [updatedRows] = await Category.update(updates, {
             where: { id: req.params.id }
         });
 

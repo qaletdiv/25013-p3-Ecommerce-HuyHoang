@@ -12,6 +12,7 @@ db.Profile = require('./profile')(sequelize, Sequelize);
 db.Variant = require('./variants')(sequelize, Sequelize);
 db.Size = require('./size')(sequelize, Sequelize);
 db.Color = require('./color')(sequelize, Sequelize);
+db.Review = require('./review')(sequelize, Sequelize);
 
 Object.keys(db).forEach(modelName => {
     if (db[modelName].associate) {

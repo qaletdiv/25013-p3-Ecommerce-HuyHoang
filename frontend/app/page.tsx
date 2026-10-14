@@ -2,6 +2,7 @@ import Link from "next/link";
 import ProductsCard from "./components/productsCard";
 import { Product } from "./types/types";
 import BannerSlider from "./components/bannerSlide";
+import ReviewsSection from "./components/reviewsSection";
 
 export const dynamic = "force-dynamic";
 
@@ -89,6 +90,7 @@ export default async function Home() {
         <p className="mx-auto mt-7 max-w-xl text-sm leading-7 text-neutral-500">Đăng ký để nhận những câu chuyện, bộ sưu tập mới và cảm hứng được tuyển chọn riêng cho bạn.</p>
         <Link href="/register" className="mt-9 inline-block bg-black px-8 py-4 text-xs uppercase tracking-[0.22em] text-white transition hover:bg-neutral-700 dark:bg-white dark:text-black dark:hover:bg-neutral-300">Tham gia HyperLane</Link>
       </section>
+      <ReviewsSection />
     </main>
   );
 }

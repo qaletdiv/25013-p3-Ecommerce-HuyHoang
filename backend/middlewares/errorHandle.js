@@ -12,6 +12,10 @@ if (err.message === 'Chỉ chấp nhận file hình ảnh!') {
 	return res.status(400).json({ message: err.message });
 }
 
+if (err.name === 'SequelizeValidationError') {
+	return res.status(400).json({ message: err.errors.map((item) => item.message).join(', ') });
+}
+
 res.status(500).json({ message: 'Lỗi server. Vui lòng thử lại sau.' }); // (3) Gửi response lỗi 500
 }
 module.exports = errorHandlerMiddleware;

@@ -20,6 +20,7 @@ const PORT = 3001;
 const userRouter = require('./routes/userRoutes.js');
 const cookieRouter = require('./routes/cookieRoutes.js');
 const sessionRouter = require('./routes/sessionRoutes.js');
+const reviewRouter = require('./routes/reviewRoutes.js');
 
 app.use(cookieParser()); // Sử dụng cookie-parser để phân tích cookie
 
@@ -85,16 +86,33 @@ app.use('/api/categories', categoryRouter);
 app.use('/api',productsRouter); 
 app.use('/api/cookies', cookieRouter);
 app.use('/api/sessions', sessionRouter);
+app.use('/api/reviews', reviewRouter);
 app.use(errorHandlerMiddleware);
 
 db.sequelize.authenticate()
 .then(() => {
     console.log('Kết nối cơ sở dữ liệu thành công!');
+    return db.sequelize.query(
+        'ALTER TABLE Users ADD COLUMN address VARCHAR(255) NULL'
+    ).catch((error) => {
+        if (error.original?.errno !== 1060 && error.parent?.errno !== 1060) {
+            throw error;
+        }
+    });
 })
-.catch(err => {
-    console.error('Không thể kết nối cơ sở dữ liệu:', err);
-});
-
-app.listen(PORT, () => {
-    console.log(`Server Express đang lắng nghe tại http://localhost:${PORT}`);
-});
+.then(() => db.sequelize.query(
+    'ALTER TABLE products ADD COLUMN hidden TINYINT(1) NOT NULL DEFAULT 0'
+).catch((error) => {
+    if (error.original?.errno !== 1060 && error.parent?.errno !== 1060) {
+        throw error;
+    }
+}))
+.then(() => db.Review.sync())
+    .then(() => {
+        app.listen(PORT, () => {
+            console.log(`Server Express đang lắng nghe tại http://localhost:${PORT}`);
+        });
+    })
+    .catch(err => {
+        console.error('Không thể khởi động server vì database chưa sẵn sàng:', err);
+    });

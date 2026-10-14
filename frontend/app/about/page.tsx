@@ -1,149 +1,63 @@
 import Image from "next/image";
+import Link from "next/link";
 
 export default function AboutPage() {
   return (
-    <main className="bg-white text-neutral-900">
-
-      {/* HERO */}
-      <section className="relative h-[75vh] w-full">
-        <Image
-          src="https://images.unsplash.com/photo-1523381210434-271e8be1f52b"
-          alt="about-banner"
-          fill
-          priority
-          className="object-cover"
-        />
-
-        <div className="absolute inset-0 bg-black/35 flex flex-col justify-center items-center text-white">
-
-          <p className="uppercase tracking-[0.35em] text-sm mb-6 opacity-80">
-            Về Chúng Tôi
-          </p>
-
-          <h1 className="text-6xl md:text-7xl font-light tracking-[0.08em]">
-            HyperLane
-          </h1>
-
+    <main className="bg-white text-neutral-900 dark:bg-[#111] dark:text-neutral-100">
+      <section className="relative min-h-[68vh] overflow-hidden">
+        <Image src="https://images.unsplash.com/photo-1523381210434-271e8be1f52b" alt="Không gian thời trang HyperLane" fill priority className="object-cover" />
+        <div className="absolute inset-0 bg-black/45" />
+        <div className="relative z-10 mx-auto flex min-h-[68vh] max-w-7xl flex-col justify-end px-6 pb-14 text-white md:px-10 md:pb-20">
+          <p className="mb-5 text-[10px] uppercase tracking-[0.35em] text-white/70">Về HyperLane</p>
+          <h1 className="max-w-3xl text-5xl font-light leading-none tracking-tight md:text-8xl">Ít hơn, nhưng tốt hơn.</h1>
         </div>
       </section>
 
-      {/* INTRO */}
-      <section className="max-w-6xl mx-auto px-8 py-28 border-b border-neutral-200 text-center">
-
-        <p className="uppercase tracking-[0.3em] text-sm text-neutral-500 mb-8">
-          Bắt đầu năm 2026
-        </p>
-
-        <h2 className="text-5xl font-light max-w-4xl mx-auto leading-tight mb-10">
-          Định nghĩa lại thời trang đương đại thông qua sự đơn giản vượt thời gian.
-        </h2>
-
-        <p className="text-neutral-600 leading-8 max-w-3xl mx-auto">
-          HyperLane là một thương hiệu thời trang đương đại của Việt Nam, được tạo ra dành cho
-          những người coi trọng thiết kế tinh tế, những món đồ thiết yếu cao cấp và sự tự tin hiện đại.
-        </p>
-
+      <section className="mx-auto max-w-7xl border-b border-neutral-200 px-6 py-20 dark:border-neutral-800 md:px-10 md:py-28">
+        <div className="grid gap-10 md:grid-cols-[0.8fr_1.2fr] md:gap-20">
+          <p className="text-[10px] uppercase tracking-[0.35em] text-neutral-500">01 / Câu chuyện</p>
+          <div>
+            <h2 className="max-w-4xl text-3xl font-light leading-tight tracking-tight md:text-5xl">Định nghĩa lại thời trang đương đại bằng sự đơn giản vượt thời gian.</h2>
+            <p className="mt-8 max-w-2xl text-sm leading-8 text-neutral-500">HyperLane là thương hiệu thời trang Việt Nam dành cho những người yêu thiết kế tinh tế, chất lượng bền lâu và sự tự tin tự nhiên. Chúng tôi tạo ra những món đồ thiết yếu để bạn mặc, sống và thể hiện bản thân theo cách riêng.</p>
+          </div>
+        </div>
       </section>
 
-      {/* CONTENT */}
-      <section className="max-w-5xl mx-auto px-8 py-24 space-y-28">
-
-        {/* SECTION */}
-        <div>
-          <p className="uppercase tracking-[0.25em] text-sm text-neutral-500 mb-6">
-            Hành trình
-          </p>
-
-          <h3 className="text-4xl font-light mb-8">
-            Sự phát triển của chúng tôi
-          </h3>
-
-          <p className="leading-8 text-neutral-600 mb-8">
-            Khởi đầu từ một tầm nhìn địa phương tập trung, nay đã phát triển thành một điểm đến thời trang hiện đại, phục vụ khách hàng trên toàn quốc thông qua thiết kế cao cấp và sự sang trọng dễ tiếp cận.
-          </p>
-
-          <ul className="space-y-4 text-neutral-700 border-l border-neutral-300 pl-8">
-            <li>2026 — Thành lập tại Việt Nam</li>
-            <li>Được xây dựng dựa trên những món đồ thiết yếu trong tủ quần áo.</li>
-            <li>Mở rộng thông qua thương mại điện tử</li>
-            <li>Phát triển theo hướng sự hiện diện quốc tế</li>
-          </ul>
+      <section className="mx-auto grid max-w-7xl gap-12 px-6 py-20 md:grid-cols-2 md:px-10 md:py-28">
+        <div className="relative min-h-[440px] overflow-hidden md:min-h-[620px]">
+          <Image src="https://images.unsplash.com/photo-1445205170230-053b83016050" alt="Không gian bộ sưu tập HyperLane" fill className="object-cover transition duration-700 hover:scale-105" />
         </div>
-
-        {/* IMAGE */}
-        <div className="relative h-[650px]">
-          <Image
-            src="https://images.unsplash.com/photo-1445205170230-053b83016050"
-            alt="fashion"
-            fill
-            className="object-cover"
-          />
-        </div>
-
-        {/* PHILOSOPHY */}
-        <div>
-          <p className="uppercase tracking-[0.25em] text-sm text-neutral-500 mb-6">
-            Triết lý
-          </p>
-
-          <h3 className="text-4xl font-light mb-8">
-            Được Thiết Kế Cho Sự Sang Trọng Hàng Ngày
-          </h3>
-
-          <div className="space-y-6 text-neutral-600 leading-8">
-            <p>
-              Vật liệu cao cấp được lựa chọn để đảm bảo sự thoải mái và độ bền.
-            </p>
-            <p>
-              Đường nét tối giản được tinh chỉnh với sự chính xác hiện đại.
-            </p>
-            <p>
-              Sự cân bằng trong nghệ thuật thủ công giữa chất lượng và khả năng tiếp cận.
-            </p>
-            <p>
-              Tiếp cận thời gian không giới hạn vượt qua các xu hướng tạm thời.
-            </p>
+        <div className="flex flex-col justify-center md:pl-10">
+          <p className="mb-5 text-[10px] uppercase tracking-[0.35em] text-neutral-500">02 / Triết lý</p>
+          <h2 className="text-4xl font-light leading-tight tracking-tight md:text-5xl">Được thiết kế cho cuộc sống hàng ngày.</h2>
+          <div className="mt-10 space-y-6 text-sm leading-7 text-neutral-500">
+            <p>Chúng tôi chọn chất liệu chú trọng vào cảm giác khi mặc, độ bền và khả năng đồng hành qua nhiều mùa.</p>
+            <p>Đường nét tối giản giúp mỗi sản phẩm dễ kết hợp, nhưng vẫn đủ dấu ấn để trở thành phong cách của riêng bạn.</p>
+            <p>Từ thiết kế đến trải nghiệm mua sắm, mọi chi tiết đều được tinh chỉnh với sự rõ ràng và chủ đích.</p>
           </div>
         </div>
+      </section>
 
-        {/* CATEGORIES */}
-        <div>
-          <p className="uppercase tracking-[0.25em] text-sm text-neutral-500 mb-6">
-            Bộ Sưu Tập
-          </p>
-
-          <h3 className="text-4xl font-light mb-10">
-            Signature Essentials
-          </h3>
-
-          <div className="grid md:grid-cols-2 gap-y-5 text-lg">
-            <p>Áo sơ mi</p>
-            <p>Áo thun & Áo polo</p>
-            <p>Quần & Short</p>
-            <p>Áo khoác</p>
-            <p>Phụ kiện</p>
-            <p>Thành phần capsule theo mùa</p>
+      <section className="bg-neutral-100 dark:bg-[#1a1a1a]">
+        <div className="mx-auto max-w-7xl px-6 py-20 md:px-10 md:py-28">
+          <p className="mb-12 text-[10px] uppercase tracking-[0.35em] text-neutral-500">03 / Giá trị cốt lõi</p>
+          <div className="grid gap-10 md:grid-cols-3 md:gap-14">
+            <Value number="01" title="Có chủ đích" text="Mỗi đường nét, chất liệu và chi tiết đều có lý do để tồn tại." />
+            <Value number="02" title="Bền lâu" text="Tạo nên những lựa chọn vượt qua mùa mốt và đồng hành lâu dài." />
+            <Value number="03" title="Là chính bạn" text="Phong cách không phải khuôn mẫu; đó là cách bạn kể câu chuyện của mình." />
           </div>
         </div>
+      </section>
 
-        {/* VISION */}
-        <div className="border-t border-neutral-200 pt-20 text-center">
-
-          <p className="uppercase tracking-[0.3em] text-sm text-neutral-500 mb-6">   
-            Tầm nhìn
-          </p>
-
-          <h3 className="text-5xl font-light mb-10">
-            Thời trang định hình bản sắc
-          </h3>
-
-          <p className="max-w-3xl mx-auto leading-8 text-neutral-600">
-            HyperLane ra đời để thúc đẩy sự thể hiện bản thân thông qua những sản phẩm thiết yếu cao cấp, kết hợp giữa sự tự tin, thoải mái và thiết kế hiện đại.
-          </p>
-
-        </div>
-
+      <section className="mx-auto max-w-7xl px-6 py-20 text-center md:px-10 md:py-28">
+        <p className="mb-5 text-[10px] uppercase tracking-[0.35em] text-neutral-500">Bộ sưu tập hiện tại</p>
+        <h2 className="mx-auto max-w-2xl text-4xl font-light leading-tight md:text-6xl">Những món đồ thiết yếu, dành cho bạn.</h2>
+        <Link href="/sanpham" className="mt-9 inline-flex rounded-full bg-neutral-900 px-7 py-3.5 text-xs uppercase tracking-[0.18em] text-white transition hover:bg-neutral-700 dark:bg-white dark:text-black dark:hover:bg-neutral-200">Khám phá sản phẩm <span className="ml-4">↗</span></Link>
       </section>
     </main>
   );
+}
+
+function Value({ number, title, text }: { number: string; title: string; text: string }) {
+  return <div><p className="mb-6 text-xs text-neutral-400">{number}</p><h3 className="mb-3 text-2xl font-light">{title}</h3><p className="max-w-xs text-sm leading-7 text-neutral-500">{text}</p></div>;
 }

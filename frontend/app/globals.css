@@ -111,3 +111,14 @@ body {
 .animate-slideIn {
   animation: slideIn 0.35s ease;
 }
+
+.review-track {
+  --review-step: calc(100% + 1.25rem);
+  transform: translateX(calc(-1 * var(--review-index) * var(--review-step)));
+}
+
+@media (min-width: 768px) {
+  .review-track {
+    --review-step: calc(33.333% + 0.416rem);
+  }
+}

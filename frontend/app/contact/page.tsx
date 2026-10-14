@@ -1,163 +1,108 @@
 "use client";
 
-import { Mail, Phone, MapPin } from "lucide-react";
+import { Mail, MapPin, Phone, Send } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "../context/ToastContext";
 
 const API = process.env.NEXT_PUBLIC_API_BASE;
+const initialForm = { name: "", email: "", phone: "", message: "" };
 
 export default function ContactPage() {
-    const { showToast } = useToast();
-    const [form, setForm] = useState({ name: "", email: "", phone: "", message: "" });
-    const [sending, setSending] = useState(false);
+  const { showToast } = useToast();
+  const [form, setForm] = useState(initialForm);
+  const [sending, setSending] = useState(false);
 
-    const handleChange = (field: string, value: string) =>
-        setForm((prev) => ({ ...prev, [field]: value }));
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setSending(true);
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setSending(true);
-        try {
-            const res = await fetch(`${API}/api/contact`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(form),
-            });
-            const data = await res.json();
-            if (res.ok) {
-                showToast("Gửi liên hệ thành công! Chúng tôi sẽ phản hồi sớm.", "success");
-                setForm({ name: "", email: "", phone: "", message: "" });
-            } else {
-                showToast(data.message || "Gửi thất bại", "error");
-            }
-        } catch {
-            showToast("Lỗi kết nối máy chủ", "error");
-        } finally {
-            setSending(false);
-        }
-    };
+    try {
+      const response = await fetch(`${API}/api/contact`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      const data = await response.json().catch(() => ({}));
 
-    return (
-        <main className="bg-white text-neutral-900">
+      if (!response.ok) {
+        showToast(data.message || "Không thể gửi tin nhắn. Vui lòng thử lại.", "error");
+        return;
+      }
 
-            {/* HERO */}
-            <section className="border-b border-neutral-200 py-28 text-center">
-                <p className="uppercase tracking-[0.35em] text-sm text-neutral-500 mb-5">
-                    Liên hệ
-                </p>
+      showToast("Đã gửi tin nhắn. HyperLane sẽ phản hồi bạn sớm.", "success");
+      setForm(initialForm);
+    } catch {
+      showToast("Không thể kết nối máy chủ. Vui lòng thử lại sau.", "error");
+    } finally {
+      setSending(false);
+    }
+  };
 
-                <h1 className="text-5xl font-light tracking-[0.08em] mb-4">
-                    Chúng tôi sẵn sàng hỗ trợ bạn
-                </h1>
+  return (
+    <main className="bg-white text-neutral-900 dark:bg-[#111] dark:text-neutral-100">
+      <section className="border-b border-neutral-200 bg-neutral-50 px-6 py-20 dark:border-neutral-800 dark:bg-[#171717] md:py-28">
+        <div className="mx-auto max-w-7xl">
+          <p className="mb-5 text-[10px] uppercase tracking-[0.35em] text-neutral-500">HyperLane / Liên hệ</p>
+          <div className="grid gap-8 md:grid-cols-[1.15fr_0.85fr] md:items-end">
+            <h1 className="max-w-3xl text-4xl font-light leading-tight tracking-tight md:text-6xl">
+              Hãy bắt đầu một cuộc trò chuyện.
+            </h1>
+            <p className="max-w-md text-sm leading-7 text-neutral-500 md:justify-self-end">
+              Từ câu hỏi về sản phẩm đến hỗ trợ đơn hàng, đội ngũ HyperLane luôn sẵn sàng lắng nghe và hỗ trợ bạn.
+            </p>
+          </div>
+        </div>
+      </section>
 
-                <p className="text-neutral-500 max-w-xl mx-auto leading-8">
-                    Chúng tôi luôn sẵn sàng hỗ trợ bạn với các câu hỏi, đơn hàng và mọi thứ bạn cần để có được trải nghiệm mua sắm liền mạch.
-                </p>
-            </section>
+      <section className="mx-auto grid max-w-7xl gap-16 px-6 py-16 md:px-10 md:py-24 lg:grid-cols-[1fr_0.8fr] lg:gap-28">
+        <div>
+          <div className="mb-10">
+            <p className="mb-3 text-[10px] uppercase tracking-[0.3em] text-neutral-500">Gửi tin nhắn</p>
+            <h2 className="text-3xl font-light tracking-tight md:text-4xl">Chúng tôi có thể giúp gì cho bạn?</h2>
+          </div>
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="grid gap-5 sm:grid-cols-2">
+              <Field label="Họ và tên" required value={form.name} onChange={(value) => setForm({ ...form, name: value })} />
+              <Field label="Email" type="email" required value={form.email} onChange={(value) => setForm({ ...form, email: value })} />
+            </div>
+            <Field label="Số điện thoại" value={form.phone} onChange={(value) => setForm({ ...form, phone: value })} />
+            <label className="block">
+              <span className="mb-2 block text-xs text-neutral-500">Nội dung tin nhắn <span className="text-neutral-900 dark:text-white">*</span></span>
+              <textarea required rows={6} value={form.message} onChange={(event) => setForm({ ...form, message: event.target.value })} placeholder="Bạn muốn chia sẻ điều gì?" className="w-full resize-none rounded-xl border border-neutral-200 bg-transparent px-4 py-3 text-sm outline-none transition placeholder:text-neutral-400 focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 dark:border-neutral-700 dark:focus:border-white dark:focus:ring-white/10" />
+            </label>
+            <button disabled={sending} type="submit" className="inline-flex items-center gap-3 rounded-full bg-neutral-900 px-7 py-3.5 text-xs uppercase tracking-[0.18em] text-white transition hover:bg-neutral-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-black dark:hover:bg-neutral-200">
+              <Send size={15} /> {sending ? "Đang gửi..." : "Gửi tin nhắn"}
+            </button>
+          </form>
+        </div>
 
-            {/* CONTENT */}
-            <section className="max-w-7xl mx-auto px-8 py-24 grid lg:grid-cols-2 gap-24">
+        <aside className="lg:border-l lg:border-neutral-200 lg:pl-16 dark:lg:border-neutral-800">
+          <p className="mb-8 text-[10px] uppercase tracking-[0.3em] text-neutral-500">Thông tin liên hệ</p>
+          <div className="space-y-7">
+            <ContactDetail icon={<MapPin size={18} />} label="Studio" value="Thanh Hóa, Việt Nam" />
+            <ContactDetail icon={<Phone size={18} />} label="Điện thoại" value="0123 456 789" href="tel:0123456789" />
+            <ContactDetail icon={<Mail size={18} />} label="Email" value="support@hyperlane.com" href="mailto:support@hyperlane.com" />
+          </div>
+          <div className="mt-12 overflow-hidden rounded-2xl border border-neutral-200 dark:border-neutral-800">
+            <iframe title="Bản đồ HyperLane tại Thanh Hóa" src="https://maps.google.com/maps?q=Thanh%20Hoa&t=&z=13&ie=UTF8&iwloc=&output=embed" className="h-64 w-full" loading="lazy" />
+          </div>
+          <p className="mt-5 text-xs leading-6 text-neutral-500">Thời gian hỗ trợ: Thứ 2 - Thứ 7, 08:30 - 17:30.</p>
+        </aside>
+      </section>
+    </main>
+  );
+}
 
-                {/* FORM */}
-                <div>
-                    <h2 className="uppercase tracking-[0.25em] text-sm mb-10 text-neutral-500">
-                        Gửi tin nhắn cho chúng tôi
-                    </h2>
+function Field({ label, type = "text", required = false, value, onChange }: { label: string; type?: string; required?: boolean; value: string; onChange: (value: string) => void }) {
+  return (
+    <label className="block">
+      <span className="mb-2 block text-xs text-neutral-500">{label} {required && <span className="text-neutral-900 dark:text-white">*</span>}</span>
+      <input required={required} type={type} value={value} onChange={(event) => onChange(event.target.value)} className="h-12 w-full rounded-xl border border-neutral-200 bg-transparent px-4 text-sm outline-none transition placeholder:text-neutral-400 focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5 dark:border-neutral-700 dark:focus:border-white dark:focus:ring-white/10" />
+    </label>
+  );
+}
 
-                    <form className="space-y-10" onSubmit={handleSubmit}>
-                        <input
-                            type="text"
-                            required
-                            placeholder="Họ và tên"
-                            value={form.name}
-                            onChange={(e) => handleChange("name", e.target.value)}
-                            className="w-full border-b border-neutral-300 py-4 outline-none focus:border-black transition bg-transparent"
-                        />
-
-                        <input
-                            type="email"
-                            required
-                            placeholder="Email"
-                            value={form.email}
-                            onChange={(e) => handleChange("email", e.target.value)}
-                            className="w-full border-b border-neutral-300 py-4 outline-none focus:border-black transition bg-transparent"
-                        />
-
-                        <input
-                            type="text"
-                            placeholder="Số điện thoại"
-                            value={form.phone}
-                            onChange={(e) => handleChange("phone", e.target.value)}
-                            className="w-full border-b border-neutral-300 py-4 outline-none focus:border-black transition bg-transparent"
-                        />
-
-                        <textarea
-                            rows={5}
-                            required
-                            placeholder="Nội dung tin nhắn"
-                            value={form.message}
-                            onChange={(e) => handleChange("message", e.target.value)}
-                            className="w-full border-b border-neutral-300 py-4 outline-none focus:border-black transition resize-none bg-transparent"
-                        />
-
-                        <button
-                            type="submit"
-                            disabled={sending}
-                            className="bg-black text-white px-14 py-4 uppercase tracking-[0.2em] text-sm hover:bg-neutral-800 transition disabled:opacity-50"
-                        >
-                            {sending ? "Đang gửi..." : "Gửi"}
-                        </button>
-                    </form>
-                </div>
-
-                {/* INFO */}
-                <div>
-                    <h2 className="uppercase tracking-[0.25em] text-sm mb-10 text-neutral-500">
-                        Thông tin liên hệ
-                    </h2>
-
-                    <div className="space-y-10">
-                        <div className="flex gap-5 items-start">
-                            <MapPin className="w-5 h-5 mt-1 text-neutral-700" />
-                            <div>
-                                <p className="uppercase text-xs tracking-[0.2em] text-neutral-500 mb-2">
-                                    Địa chỉ
-                                </p>
-                                <p>Thanh Hóa, Việt Nam</p>
-                            </div>
-                        </div>
-
-                        <div className="flex gap-5 items-start">
-                            <Phone className="w-5 h-5 mt-1 text-neutral-700" />
-                            <div>
-                                <p className="uppercase text-xs tracking-[0.2em] text-neutral-500 mb-2">
-                                    Liên Hệ
-                                </p>
-                                <p>0123 456 789</p>
-                            </div>
-                        </div>
-
-                        <div className="flex gap-5 items-start">
-                            <Mail className="w-5 h-5 mt-1 text-neutral-700" />
-                            <div>
-                                <p className="uppercase text-xs tracking-[0.2em] text-neutral-500 mb-2">
-                                    Email
-                                </p>
-                                <p>support@hyperlane.com</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* MAP */}
-                    <div className="mt-16 border border-neutral-200 overflow-hidden">
-                        <iframe
-                            src="https://maps.google.com/maps?q=Thanh%20Hoa&t=&z=13&ie=UTF8&iwloc=&output=embed"
-                            className="w-full h-[380px]"
-                            loading="lazy"
-                        />
-                    </div>
-                </div>
-            </section>
-        </main>
-    );
+function ContactDetail({ icon, label, value, href }: { icon: React.ReactNode; label: string; value: string; href?: string }) {
+  const content = href ? <a href={href} className="transition hover:text-neutral-500">{value}</a> : value;
+  return <div className="flex gap-4"><span className="mt-0.5 text-neutral-500">{icon}</span><div><p className="mb-1 text-[10px] uppercase tracking-[0.2em] text-neutral-500">{label}</p><p className="text-sm">{content}</p></div></div>;
 }

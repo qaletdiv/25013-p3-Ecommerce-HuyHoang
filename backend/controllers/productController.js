@@ -78,11 +78,26 @@ const syncVariants = async (product, variants, transaction) => {
 const getAllProducts = async (req, res, next) => {
     try {
         const products = await Product.findAll({
+            where: req.includeHidden ? undefined : { hidden: false },
+            order: [['createdAt', 'DESC'], ['id', 'DESC']],
             include: productIncludeOptions
         });
 
         res.json(products);
 
+    } catch (error) {
+        next(error);
+    }
+};
+
+const getProductOptions = async (req, res, next) => {
+    try {
+        const [sizes, colors] = await Promise.all([
+            Size.findAll({ attributes: ['id', 'name'], order: [['name', 'ASC']] }),
+            Color.findAll({ attributes: ['id', 'name'], order: [['name', 'ASC']] })
+        ]);
+
+        res.json({ sizes, colors });
     } catch (error) {
         next(error);
     }
@@ -114,7 +129,8 @@ const getRelatedProductsBySlug = async (req, res, next) => {
         const relatedProducts = await Product.findAll({
             where: {
                 categoryId: product.categoryId,
-                id: { [require('sequelize').Op.ne]: product.id }
+                id: { [require('sequelize').Op.ne]: product.id },
+                hidden: false
             },
             include: productIncludeOptions
         });
@@ -127,7 +143,7 @@ const getRelatedProductsBySlug = async (req, res, next) => {
 const getProductBySlug = async (req, res, next) => {
     try {
         const product = await Product.findOne({
-            where: { slug: req.params.slug },
+            where: { slug: req.params.slug, hidden: false },
             include: productIncludeOptions
         });
         if (!product) {
@@ -142,9 +158,9 @@ const getProductBySlug = async (req, res, next) => {
 const createProduct = async (req, res, next) => {
     const transaction = await sequelize.transaction();
     try {
-        const { name, slug, description, categoryId, tagIds, thumbnail, images, specs, hot, variants } = req.body;
+        const { name, slug, description, categoryId, tagIds, thumbnail, images, specs, hot, hidden, variants } = req.body;
         const newProduct = await Product.create(
-            { name, slug, description, categoryId, thumbnail, images, specs, hot },
+            { name, slug, description, categoryId, thumbnail, images, specs, hot, hidden: Boolean(hidden) },
             { transaction }
         );
 
@@ -167,7 +183,7 @@ const createProduct = async (req, res, next) => {
 const updateProduct = async (req, res, next) => {
     const transaction = await sequelize.transaction();
     try {
-        const { name, slug, description, categoryId, tagIds, thumbnail, images, specs, hot, variants } = req.body;
+        const { name, slug, description, categoryId, tagIds, thumbnail, images, specs, hot, hidden, variants } = req.body;
         const product = await Product.findByPk(req.params.id, { transaction });
 
         if (!product) {
@@ -176,7 +192,7 @@ const updateProduct = async (req, res, next) => {
         }
 
         await product.update(
-            { name, slug, description, categoryId, thumbnail, images, specs, hot },
+            { name, slug, description, categoryId, thumbnail, images, specs, hot, hidden },
             { transaction }
         );
 
@@ -196,28 +212,12 @@ const updateProduct = async (req, res, next) => {
     }
 };
 
-const deleteProduct = async (req, res, next) => {
-    try {
-        const deletedRows = await Product.destroy({
-            where: { id: req.params.id }
-        });
-
-        if (deletedRows === 0) {
-            return res.status(404).send('Không tìm thấy sản phẩm để xóa');
-        }
-
-        res.status(204).send();
-    } catch (error) {
-        next(error);
-    }
-};
-
 module.exports = {
     getAllProducts,
+    getProductOptions,
     getProductById,
     createProduct,
     getRelatedProductsBySlug,
     getProductBySlug,
     updateProduct,
-    deleteProduct
 };

@@ -5,7 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Product } from "../types/types";
-import { useCart } from "../context/CartContext";
+import { useDispatch, useSelector } from "react-redux";
+import { addToCart } from "../store/cartSlice";
+import { AppDispatch, RootState } from "../store/store";
+import { useToast } from "../context/ToastContext";
 import { formatPrice } from "@/utils/formatPrice";
 
 export default function ProductsCard({
@@ -14,7 +17,9 @@ export default function ProductsCard({
   product: Product;
 }) {
   const router = useRouter();
-  const { addToCart } = useCart();
+  const dispatch = useDispatch<AppDispatch>();
+  const cart = useSelector((state: RootState) => state.cart.items);
+  const { showToast } = useToast();
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
@@ -52,8 +57,15 @@ export default function ProductsCard({
     const rawColor: unknown = firstVariant.color;
     const rawSize: unknown = firstVariant.size;
 
-    addToCart({
-      id: `${product.id}-${firstVariant.id}`,
+    const id = `${product.id}-${firstVariant.id}`;
+    const existing = cart.find((item) => item.id === id);
+    if (existing && existing.quantity >= stock) {
+      showToast(`"${product.name}" đã đạt số lượng tồn kho`, "info");
+      return;
+    }
+
+    dispatch(addToCart({
+      id,
       productId: product.id.toString(),
       variantId: firstVariant.id.toString(),
       name: product.name,
@@ -67,7 +79,11 @@ export default function ProductsCard({
         : String(rawSize || ""),
       stock: Number(firstVariant.stock),
       quantity: 1,
-    });
+    }));
+    showToast(
+      existing ? `Đã cập nhật "${product.name}" trong giỏ hàng` : `Đã thêm "${product.name}" vào giỏ hàng`,
+      existing ? "info" : "success"
+    );
   };
 
   return (

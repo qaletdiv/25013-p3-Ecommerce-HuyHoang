@@ -1,25 +1,22 @@
 "use client";
 
 import Link from "next/link";
+import { jwtDecode } from "jwt-decode";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useCart } from "../context/CartContext";
+import { useDispatch, useSelector } from "react-redux";
+import { clearCart } from "../store/cartSlice";
+import { AppDispatch, RootState } from "../store/store";
 import { formatPrice } from "@/utils/formatPrice";
 
 type Payment = {
     id: string;
     name: string;
-    type: "cash" | "bank" | "qr";
+    type: "cash" | "bank" | "qr" | "stripe";
     bankName?: string;
     accountNumber?: string;
     accountName?: string;
     qr?: string;
-};
-
-const mockQrPayment: Payment = {
-    id: "mock-qr",
-    name: "Quét mã QR (mô phỏng)",
-    type: "qr",
 };
 
 const mockCashPayment: Payment = {
@@ -28,20 +25,42 @@ const mockCashPayment: Payment = {
     type: "cash",
 };
 
+const stripePayment: Payment = {
+    id: "stripe",
+    name: "Thanh toán online qua Stripe",
+    type: "stripe",
+};
+
 type Shipping = {
     name: string;
     phone: string;
     address: string;
 };
 
+type OrderQuote = {
+    subtotal: number;
+    discountCode: string | null;
+    discountPercent: number;
+    discountAmount: number;
+    shippingFee: number;
+    total: number;
+};
+
+const getAuthHeaders = (token: string): HeadersInit => ({
+    Authorization: `Bearer ${token.trim()}`,
+});
+
 export default function CheckoutPage() {
     const router = useRouter();
-    const { cart, clearCart } = useCart();
+    const dispatch = useDispatch<AppDispatch>();
+    const cart = useSelector((state: RootState) => state.cart.items);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState("");
     const [payments, setPayments] = useState<Payment[]>([]);
     const [paymentMethod, setPaymentMethod] = useState("");
+    const [discountCode, setDiscountCode] = useState("");
+    const [quote, setQuote] = useState<OrderQuote | null>(null);
     const [shipping, setShipping] = useState<Shipping>({ name: "", phone: "", address: "" });
 
     useEffect(() => {
@@ -71,16 +90,18 @@ export default function CheckoutPage() {
                 return Array.isArray(data) ? data : [];
             })
             .then((data: Payment[]) => {
-                const availablePayments = data.length
-                    ? data.some((payment) => payment.type === "qr")
-                        ? data
-                        : [...data, mockQrPayment]
-                    : [mockCashPayment, mockQrPayment];
+                const availablePayments = data.filter((payment) => payment.type === "cash" || payment.type === "stripe");
+                if (!availablePayments.some((payment) => payment.type === "cash")) {
+                    availablePayments.unshift(mockCashPayment);
+                }
+                if (!availablePayments.some((payment) => payment.type === "stripe")) {
+                    availablePayments.push(stripePayment);
+                }
                 setPayments(availablePayments);
                 setPaymentMethod(availablePayments[0]?.id || "cod");
             })
             .catch(() => {
-                setPayments([mockCashPayment, mockQrPayment]);
+                setPayments([mockCashPayment, stripePayment]);
                 setPaymentMethod(mockCashPayment.id);
             })
             .finally(() => setLoading(false));
@@ -90,9 +111,63 @@ export default function CheckoutPage() {
         if (!loading && cart.length === 0) router.replace("/cart");
     }, [cart.length, loading, router]);
 
-    const total = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.quantity, 0), [cart]);
+    const subtotal = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.quantity, 0), [cart]);
+    const total = quote?.total ?? subtotal;
     const selectedPayment = payments.find((payment) => payment.id === paymentMethod);
     const paymentLabel = selectedPayment?.name || "Thanh toán khi nhận hàng";
+
+    useEffect(() => {
+        if (loading || cart.length === 0) return;
+        const token = localStorage.getItem("token");
+        if (!token) {
+            router.replace("/login");
+            return;
+        }
+        try {
+            const payload = jwtDecode<{ exp?: number }>(token);
+            if (payload.exp && payload.exp * 1000 <= Date.now()) {
+                throw new Error("expired");
+            }
+        } catch {
+            localStorage.removeItem("user");
+            localStorage.removeItem("token");
+            document.cookie = "token=; Max-Age=0; path=/";
+            router.replace("/login");
+            return;
+        }
+
+        const controller = new AbortController();
+        fetch(`${process.env.NEXT_PUBLIC_API_BASE}/api/orders/quote`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+                items: cart.map((item) => ({ variantId: item.variantId, quantity: item.quantity })),
+                discountCode: discountCode.trim(),
+            }),
+            signal: controller.signal,
+        }).then(async (response) => {
+            const data = await response.json().catch(() => ({}));
+            if (response.status === 401 || response.status === 403) {
+                localStorage.removeItem("user");
+                localStorage.removeItem("token");
+                router.replace("/login");
+                return;
+            }
+            if (!response.ok) throw new Error(data.message || "Không thể tính giá đơn hàng.");
+            setQuote(data);
+            setError("");
+        }).catch((requestError) => {
+            if (requestError.name !== "AbortError") {
+                setQuote(null);
+                setError(requestError instanceof Error ? requestError.message : "Không thể tính giá đơn hàng.");
+            }
+        });
+
+        return () => controller.abort();
+    }, [cart, discountCode, loading, router]);
 
     const updateShipping = (key: keyof Shipping, value: string) => {
         setShipping((current) => ({ ...current, [key]: value }));
@@ -101,7 +176,10 @@ export default function CheckoutPage() {
 
     const handleConfirm = async () => {
         const storedUser = localStorage.getItem("user");
-        if (!storedUser) {
+        const token = localStorage.getItem("token");
+        if (!storedUser || !token) {
+            localStorage.removeItem("user");
+            localStorage.removeItem("token");
             router.push("/login");
             return;
         }
@@ -134,6 +212,40 @@ export default function CheckoutPage() {
         setSubmitting(true);
         setError("");
         try {
+            if (paymentMethod === "stripe") {
+                const stripeResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE}/api/payments/stripe/create-checkout-session`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        ...getAuthHeaders(token),
+                        ...getAuthHeaders(token),
+                    },
+                    body: JSON.stringify({
+                        items: cart.map((item) => ({ variantId: item.variantId, quantity: item.quantity })),
+                        shipping: {
+                            name: shipping.name.trim(),
+                            phone: shipping.phone.trim(),
+                            address: shipping.address.trim(),
+                        },
+                        discountCode: discountCode.trim(),
+                    }),
+                });
+                const stripeResult = await stripeResponse.json().catch(() => ({}));
+                if (stripeResponse.status === 401 || stripeResponse.status === 403) {
+                    localStorage.removeItem("user");
+                    localStorage.removeItem("token");
+                    document.cookie = "token=; Max-Age=0; path=/";
+                    router.replace("/login");
+                    return;
+                }
+                if (!stripeResponse.ok || typeof stripeResult.url !== "string") {
+                    throw new Error(stripeResult.message || "Không thể khởi tạo thanh toán Stripe.");
+                }
+
+                window.location.assign(stripeResult.url);
+                return;
+            }
+
             const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE}/api/orders`, {
                 method: "POST",
                 headers: {
@@ -141,31 +253,21 @@ export default function CheckoutPage() {
                     Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
                 },
                 body: JSON.stringify({
-                    userId: user.id,
-                    name: shipping.name.trim(),
-                    phone: shipping.phone.trim(),
-                    address: shipping.address.trim(),
+                    shipping: {
+                        name: shipping.name.trim(),
+                        phone: shipping.phone.trim(),
+                        address: shipping.address.trim(),
+                    },
                     items: cart.map((item) => ({ variantId: item.variantId, quantity: item.quantity })),
-                    paymentMethod,
+                    discountCode: discountCode.trim(),
                 }),
             });
             const result = await response.json().catch(() => ({}));
             if (!response.ok) throw new Error(result.message || "Không thể tạo đơn hàng. Vui lòng thử lại.");
 
-            const savedOrder = {
-                id: result.orderId || `o-${Date.now()}`,
-                userId: user.id,
-                ...shipping,
-                items: cart,
-                total,
-                paymentMethod,
-                status: "pending",
-                createdAt: new Date().toISOString(),
-                date: new Date().toLocaleDateString("vi-VN"),
-            };
-            const storedOrders = JSON.parse(localStorage.getItem("orders") || "[]");
-            localStorage.setItem("orders", JSON.stringify([...(Array.isArray(storedOrders) ? storedOrders : []), savedOrder]));
-            clearCart();
+            const savedOrder = createLocalOrder(user.id, cart, Number(result.total) || total, paymentMethod, shipping, result.orderId);
+            saveLocalOrder(savedOrder);
+            dispatch(clearCart());
             router.push("/confirm-checkout");
         } catch (requestError) {
             setError(requestError instanceof Error ? requestError.message : "Không thể tạo đơn hàng.");
@@ -202,6 +304,7 @@ export default function CheckoutPage() {
                                 <Field label="Số điện thoại" value={shipping.phone} type="tel" onChange={(value) => updateShipping("phone", value)} />
                                 <div className="md:col-span-2"><Field label="Địa chỉ nhận hàng" value={shipping.address} multiline onChange={(value) => updateShipping("address", value)} /></div>
                             </div>
+                            <div className="mt-6"><Field label="Mã giảm giá (SAVE20 / SAVE30 / SAVE50)" value={discountCode} onChange={setDiscountCode} /></div>
                         </section>
 
                         <section className="border border-neutral-200 bg-white p-7 dark:border-neutral-800 dark:bg-[#181818] md:p-10">
@@ -223,7 +326,7 @@ export default function CheckoutPage() {
                         <div className="space-y-5">
                             {cart.map((item) => <div key={item.id} className="flex gap-4"><img src={item.thumbnail || "/placeholder-product.svg"} alt={item.name} className="h-20 w-16 object-cover bg-neutral-100 dark:bg-neutral-800" /><div className="min-w-0 flex-1"><p className="truncate text-sm">{item.name}</p><p className="mt-1 text-xs text-neutral-500">{item.color} / {item.size} · SL {item.quantity}</p><p className="mt-2 text-sm">{formatPrice(item.price * item.quantity)}₫</p></div></div>)}
                         </div>
-                        <div className="mt-8 space-y-4 border-t border-neutral-200 pt-6 text-sm dark:border-neutral-800"><div className="flex justify-between"><span className="text-neutral-500">Tạm tính</span><span>{formatPrice(total)}₫</span></div><div className="flex justify-between"><span className="text-neutral-500">Vận chuyển</span><span>Miễn phí</span></div><div className="flex justify-between border-t border-neutral-200 pt-5 text-xl dark:border-neutral-800"><span>Tổng cộng</span><span>{formatPrice(total)}₫</span></div></div>
+                        <div className="mt-8 space-y-4 border-t border-neutral-200 pt-6 text-sm dark:border-neutral-800"><div className="flex justify-between"><span className="text-neutral-500">Tạm tính</span><span>{formatPrice(quote?.subtotal ?? subtotal)}₫</span></div>{quote && quote.discountAmount > 0 && <div className="flex justify-between text-green-600"><span>Giảm giá{quote.discountCode ? ` (${quote.discountCode})` : ""}</span><span>-{formatPrice(quote.discountAmount)}₫</span></div>}<div className="flex justify-between"><span className="text-neutral-500">Vận chuyển</span><span>{quote?.shippingFee ? `${formatPrice(quote.shippingFee)}₫` : "Miễn phí"}</span></div><div className="flex justify-between border-t border-neutral-200 pt-5 text-xl dark:border-neutral-800"><span>Tổng cộng</span><span>{formatPrice(total)}₫</span></div></div>
                         <button type="button" onClick={handleConfirm} disabled={submitting} className="mt-8 w-full bg-black py-4 text-xs uppercase tracking-[0.2em] text-white transition hover:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-black">{submitting ? "Đang xử lý..." : "Xác nhận đặt hàng"}</button>
                         <p className="mt-5 text-center text-xs leading-5 text-neutral-500">Bằng cách đặt hàng, bạn đồng ý với các điều khoản mua hàng của HyperLane.</p>
                     </aside>
@@ -248,6 +351,7 @@ function Field({ label, value, onChange, type = "text", multiline = false }: { l
 
 function PaymentDetail({ payment, label }: { payment?: Payment; label: string }) {
     if (!payment || payment.type === "cash") return <div className="mt-5 bg-neutral-50 p-5 text-sm text-neutral-500 dark:bg-[#111]">{label} — thanh toán an toàn khi nhận hàng.</div>;
+    if (payment.type === "stripe") return <div className="mt-5 bg-neutral-50 p-5 text-sm text-neutral-500 dark:bg-[#111]">Bạn sẽ được chuyển đến Stripe để thanh toán bằng thẻ ngân hàng.</div>;
     if (payment.type === "bank") return <div className="mt-5 space-y-2 bg-neutral-50 p-5 text-sm dark:bg-[#111]"><p>Ngân hàng: {payment.bankName}</p><p>Số tài khoản: {payment.accountNumber}</p><p>Chủ tài khoản: {payment.accountName}</p></div>;
     return (
         <div className="mt-5 bg-neutral-50 p-5 text-center dark:bg-[#111]">
@@ -263,6 +367,35 @@ function PaymentDetail({ payment, label }: { payment?: Payment; label: string })
             </p>
         </div>
     );
+}
+
+function createLocalOrder(
+    userId: string,
+    items: RootState["cart"]["items"],
+    total: number,
+    paymentMethod: string,
+    shipping: Shipping,
+    id?: string
+) {
+    return {
+        id: id || `o-${Date.now()}`,
+        userId,
+        ...shipping,
+        items,
+        total,
+        paymentMethod: "cod",
+        status: "pending",
+        createdAt: new Date().toISOString(),
+        date: new Date().toLocaleDateString("vi-VN"),
+    };
+}
+
+function saveLocalOrder(order: ReturnType<typeof createLocalOrder>) {
+    const storedOrders = JSON.parse(localStorage.getItem("orders") || "[]");
+    localStorage.setItem("orders", JSON.stringify([
+        ...(Array.isArray(storedOrders) ? storedOrders : []),
+        order,
+    ]));
 }
 
 function MockQrCode() {

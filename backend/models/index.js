@@ -13,6 +13,9 @@ db.Variant = require('./variants')(sequelize, Sequelize);
 db.Size = require('./size')(sequelize, Sequelize);
 db.Color = require('./color')(sequelize, Sequelize);
 db.Review = require('./review')(sequelize, Sequelize);
+db.DiscountAmount = require('./discountAmount')(sequelize, Sequelize);
+db.Order = require('./order')(sequelize, Sequelize);
+db.OrderItem = require('./orderItem')(sequelize, Sequelize);
 
 Object.keys(db).forEach(modelName => {
     if (db[modelName].associate) {

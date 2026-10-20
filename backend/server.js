@@ -21,6 +21,9 @@ const userRouter = require('./routes/userRoutes.js');
 const cookieRouter = require('./routes/cookieRoutes.js');
 const sessionRouter = require('./routes/sessionRoutes.js');
 const reviewRouter = require('./routes/reviewRoutes.js');
+const paymentRouter = require('./routes/paymentRoutes.js');
+const orderRouter = require('./routes/orderRoutes.js');
+const { handleWebhook } = require('./controllers/stripeController.js');
 
 app.use(cookieParser()); // Sử dụng cookie-parser để phân tích cookie
 
@@ -60,7 +63,7 @@ app.use(express.static(path.join(__dirname, 'public'))); // Định nghĩa thư 
 app.use(helmet()); // Sử dụng Helmet để bảo vệ ứng dụng khỏi một số lỗ hổng bảo mật phổ biến
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 phút
-    max: 50, // Giới hạn mỗi IP là 50 request mỗi windowMs
+    max: 300, // Cho phép các request đọc dữ liệu và thao tác mua hàng thông thường
     message: 'Quá nhiều yêu cầu từ IP này, vui lòng thử lại sau 15 phút',
     standardHeaders: true, // Gửi thông tin giới hạn trong header `RateLimit-*`
     legacyHeaders: false, // Không gửi thông tin giới hạn trong header `X-RateLimit-*`
@@ -72,6 +75,7 @@ const limiter = rateLimit({
             req.path.startsWith('/api/categories/'))
 });
 app.use(limiter);
+app.post('/api/payments/stripe/webhook', express.raw({ type: 'application/json' }), handleWebhook);
 app.use(express.json())
 
 app.use('/uploads', express.static(path.join(__dirname, 'public')));
@@ -87,6 +91,8 @@ app.use('/api',productsRouter);
 app.use('/api/cookies', cookieRouter);
 app.use('/api/sessions', sessionRouter);
 app.use('/api/reviews', reviewRouter);
+app.use('/api/payments', paymentRouter);
+app.use('/api/orders', orderRouter);
 app.use(errorHandlerMiddleware);
 
 db.sequelize.authenticate()
@@ -108,6 +114,21 @@ db.sequelize.authenticate()
     }
 }))
 .then(() => db.Review.sync())
+.then(() => db.DiscountAmount.sync())
+.then(() => db.Order.sync())
+.then(() => db.OrderItem.sync())
+.then(() => db.sequelize.query(
+    'ALTER TABLE order_items ADD COLUMN thumbnail TEXT NULL'
+).catch((error) => {
+    if (error.original?.errno !== 1060 && error.parent?.errno !== 1060) {
+        throw error;
+    }
+}))
+.then(() => Promise.all([
+    db.DiscountAmount.findOrCreate({ where: { code: 'SAVE20' }, defaults: { percentage: 20 } }),
+    db.DiscountAmount.findOrCreate({ where: { code: 'SAVE30' }, defaults: { percentage: 30 } }),
+    db.DiscountAmount.findOrCreate({ where: { code: 'SAVE50' }, defaults: { percentage: 50 } })
+]))
     .then(() => {
         app.listen(PORT, () => {
             console.log(`Server Express đang lắng nghe tại http://localhost:${PORT}`);

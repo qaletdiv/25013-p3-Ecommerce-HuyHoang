@@ -10,7 +10,7 @@ const navigation = [
   { href: "/admin", label: "Tổng quan", icon: LayoutDashboard },
   { href: "/admin/products", label: "Sản phẩm", icon: ShoppingBag },
   { href: "/admin/categories", label: "Danh mục", icon: Boxes },
-  { href: "#", label: "Đơn hàng", icon: BarChart3 },
+  { href: "/admin/orders", label: "Đơn hàng", icon: BarChart3 },
   { href: "#", label: "Khách hàng", icon: Users },
 ];
 

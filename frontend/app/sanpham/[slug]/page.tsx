@@ -4,7 +4,10 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatPrice } from "@/utils/formatPrice";
-import { useCart } from "../../context/CartContext";
+import { useDispatch, useSelector } from "react-redux";
+import { addToCart } from "../../store/cartSlice";
+import { AppDispatch, RootState } from "../../store/store";
+import { useToast } from "../../context/ToastContext";
 
 type ProductVariant = {
   id: number | string;
@@ -37,7 +40,9 @@ export default function ProductDetailPage({
   params: Promise<{ slug: string }>;
 }) {
   const router = useRouter();
-  const { addToCart } = useCart();
+  const dispatch = useDispatch<AppDispatch>();
+  const cart = useSelector((state: RootState) => state.cart.items);
+  const { showToast } = useToast();
   const [slug, setSlug] = useState<string | null>(null);
   const [product, setProduct] = useState<ProductData | null>(null);
   const [relatedProducts, setRelatedProducts] = useState<ProductData[]>([]);
@@ -144,8 +149,15 @@ export default function ProductDetailPage({
       router.push("/login");
       return;
     }
-    addToCart({
-      id: `${product.id}-${selectedVariant.id}`,
+    const id = `${product.id}-${selectedVariant.id}`;
+    const existing = cart.find((item) => item.id === id);
+    if (existing && existing.quantity >= selectedVariant.stock) {
+      showToast(`"${product.name}" đã đạt số lượng tồn kho`, "info");
+      return;
+    }
+
+    dispatch(addToCart({
+      id,
       productId: String(product.id),
       variantId: String(selectedVariant.id),
       name: product.name,
@@ -155,7 +167,11 @@ export default function ProductDetailPage({
       color: selectedVariant.color,
       stock: selectedVariant.stock,
       quantity,
-    });
+    }));
+    showToast(
+      existing ? `Đã cập nhật "${product.name}" trong giỏ hàng` : `Đã thêm "${product.name}" vào giỏ hàng`,
+      existing ? "info" : "success"
+    );
   };
 
   if (error) {

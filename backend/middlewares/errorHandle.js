@@ -1,6 +1,10 @@
 function errorHandlerMiddleware(err, req, res, next) { // (1) 4 arguments: err, req, res, next
 console.error('ERROR:', err.stack || err.message); // (2) Log lỗi chi tiết
 
+if (err.status) {
+	return res.status(err.status).json({ message: err.message });
+}
+
 if (err.name === 'MulterError') {
 	const message = err.code === 'LIMIT_FILE_SIZE'
 		? 'Ảnh không được vượt quá 5MB'

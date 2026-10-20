@@ -1,7 +1,7 @@
 "use client";
 
 import { jwtDecode } from "jwt-decode";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -14,6 +14,12 @@ export default function LoginPage() {
 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
+
+    useEffect(() => {
+        localStorage.removeItem("user");
+        localStorage.removeItem("token");
+        document.cookie = "token=; Max-Age=0; path=/";
+    }, []);
 
     const handleSubmit = async (
         e: React.FormEvent
@@ -49,7 +55,12 @@ export default function LoginPage() {
                 if (typeof data.token !== "string" || !data.token) {
                     throw new Error("INVALID_LOGIN_RESPONSE");
                 }
-                const decoded: any = jwtDecode(data.token);
+                const decoded = jwtDecode<{
+                    id?: string | number;
+                    name?: string;
+                    email?: string;
+                    role?: string;
+                }>(data.token);
 
                 const user = {
                     id: decoded.id,
@@ -80,6 +91,9 @@ export default function LoginPage() {
 
                 router.refresh();
             } else {
+                localStorage.removeItem("user");
+                localStorage.removeItem("token");
+                document.cookie = "token=; Max-Age=0; path=/";
                 const validationMessage = Array.isArray(data.errors)
                     ? data.errors.map((item: { msg?: string }) => item.msg).filter(Boolean).join(", ")
                     : "";

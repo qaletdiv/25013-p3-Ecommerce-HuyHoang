@@ -4,6 +4,7 @@ import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatPrice } from "@/utils/formatPrice";
+import { Check, CircleDot, PackageCheck, Truck, X } from "lucide-react";
 
 type User = {
     id: string;
@@ -19,17 +20,34 @@ type Order = {
     id: string;
     total?: number;
     status?: string;
+    paymentMethod?: string;
+    paymentStatus?: string;
+    subtotal?: number;
+    discountAmount?: number;
+    discountCode?: string;
+    shippingFee?: number;
+    shippingName?: string;
+    shippingPhone?: string;
+    shippingAddress?: string;
     createdAt?: string;
     date?: string;
-    items?: unknown[];
+    items?: Array<{
+        id: number | string;
+        productName?: string;
+        name?: string;
+        thumbnail?: string;
+        unitPrice?: number;
+        price?: number;
+        quantity: number;
+    }>;
 };
 
 const statusLabels: Record<string, string> = {
-    pending: "Đang xử lý",
-    processing: "Đang chuẩn bị",
-    shipped: "Đang giao",
+    pending: "Chờ xác nhận",
+    confirmed: "Đã xác nhận",
+    shipping: "Giao hàng",
+    delivering: "Đang giao",
     completed: "Hoàn tất",
-    delivered: "Đã giao",
     cancelled: "Đã hủy",
 };
 
@@ -54,6 +72,7 @@ export default function ProfilePage() {
     const [notice, setNotice] = useState("");
     const [form, setForm] = useState({ username: "", email: "", address: "" });
     const [passwordForm, setPasswordForm] = useState({ currentPassword: "", newPassword: "" });
+    const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
     useEffect(() => {
         const storedUser = localStorage.getItem("user");
@@ -75,14 +94,31 @@ export default function ProfilePage() {
                 address: parsed.address || "",
             });
 
-            fetch(`${process.env.NEXT_PUBLIC_API_BASE}/api/orders/${parsed.id}`, {
+            fetch(`${process.env.NEXT_PUBLIC_API_BASE}/api/orders/mine`, {
                 headers: {
                     Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
                 },
             })
-                .then((response) => (response.ok ? response.json() : []))
+                .then(async (response) => {
+                    if (response.status === 429) {
+                        const retryAfter = response.headers.get("Retry-After");
+                        throw new Error(retryAfter
+                            ? `Bạn thao tác quá nhanh. Vui lòng thử lại sau ${retryAfter} giây.`
+                            : "Bạn thao tác quá nhanh. Vui lòng thử lại sau ít phút.");
+                    }
+                    if (response.status === 401 || response.status === 403) {
+                        localStorage.removeItem("user");
+                        localStorage.removeItem("token");
+                        router.replace("/login");
+                        return [];
+                    }
+                    return response.ok ? response.json() : [];
+                })
                 .then((data) => setOrders(Array.isArray(data) ? data : []))
-                .catch(() => setOrders([]))
+                .catch((requestError) => {
+                    setOrders([]);
+                    setNotice(requestError instanceof Error ? requestError.message : "Không thể tải lịch sử đơn hàng.");
+                })
                 .finally(() => setLoadingOrders(false));
         } catch {
             localStorage.removeItem("user");
@@ -193,6 +229,23 @@ export default function ProfilePage() {
         localStorage.removeItem("user");
         localStorage.removeItem("token");
         router.push("/login");
+    };
+
+    const handleCancelOrder = async (orderId: string) => {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE}/api/orders/${orderId}/cancel`, {
+            method: "PATCH",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `******"token") || ""}`,
+            },
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            setNotice(data.message || "Không thể hủy đơn hàng.");
+            return;
+        }
+        setOrders((current) => current.map((order) => order.id === orderId ? { ...order, status: "cancelled" } : order));
+        setNotice("Đã hủy đơn hàng.");
     };
 
     if (!user) return <div className="min-h-screen" />;
@@ -306,7 +359,7 @@ export default function ProfilePage() {
                         ) : (
                             <div className="space-y-4">
                                 {orders.slice(0, 6).map((order) => (
-                                    <div key={order.id} className="border border-neutral-200 bg-white p-6 transition hover:border-black dark:border-neutral-800 dark:bg-[#181818] dark:hover:border-white">
+                                    <div key={order.id} role="button" tabIndex={0} onClick={() => setSelectedOrder(order)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") setSelectedOrder(order); }} className="block w-full cursor-pointer border border-neutral-200 bg-white p-6 text-left transition hover:border-black dark:border-neutral-800 dark:bg-[#181818] dark:hover:border-white">
                                         <div className="flex flex-wrap items-start justify-between gap-4">
                                             <div>
                                                 <p className="mb-2 text-xs uppercase tracking-[0.2em] text-neutral-500">#{order.id}</p>
@@ -318,6 +371,12 @@ export default function ProfilePage() {
                                             <span className="text-sm text-neutral-500">{order.items?.length || 0} sản phẩm</span>
                                             <span className="text-lg">{formatPrice(Number(order.total) || 0)}₫</span>
                                         </div>
+                                        {["pending", "confirmed"].includes(order.status || "") && (
+                                            <button type="button" onClick={() => handleCancelOrder(order.id)} className="mt-4 text-xs uppercase tracking-[0.16em] text-red-500 underline underline-offset-4">
+                                                Hủy đơn hàng
+                                            </button>
+                                        )}
+                                        <p className="mt-4 text-[10px] uppercase tracking-[0.16em] text-neutral-400">Xem chi tiết đơn hàng →</p>
                                     </div>
                                 ))}
                             </div>
@@ -325,8 +384,47 @@ export default function ProfilePage() {
                     </div>
                 </div>
             </section>
+            {selectedOrder && <OrderDetail order={selectedOrder} onClose={() => setSelectedOrder(null)} onCancel={handleCancelOrder} />}
         </main>
     );
+}
+
+function OrderDetail({ order, onClose, onCancel }: { order: Order; onClose: () => void; onCancel: (id: string) => void }) {
+    const steps = [
+        { key: "pending", label: "Chờ xác nhận", icon: CircleDot },
+        { key: "confirmed", label: "Đã xác nhận", icon: Check },
+        { key: "shipping", label: "Giao hàng", icon: PackageCheck },
+        { key: "delivering", label: "Đang giao", icon: Truck },
+        { key: "completed", label: "Hoàn tất", icon: Check },
+    ];
+    const currentIndex = order.status === "cancelled" ? -1 : Math.max(0, steps.findIndex((step) => step.key === order.status));
+    return <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 backdrop-blur-sm sm:items-center sm:p-6">
+        <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto bg-white text-neutral-950 shadow-2xl dark:bg-[#181818] dark:text-neutral-100">
+            <div className="sticky top-0 z-10 flex items-start justify-between border-b border-neutral-200 bg-white p-6 dark:border-neutral-800 dark:bg-[#181818]">
+                <div><p className="text-[10px] uppercase tracking-[0.25em] text-neutral-500">Chi tiết giao dịch</p><h2 className="mt-2 text-2xl font-light">Đơn hàng #{order.id}</h2></div>
+                <button type="button" onClick={onClose} aria-label="Đóng" className="rounded-full p-2 text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800"><X size={20} /></button>
+            </div>
+            <div className="space-y-8 p-6 md:p-8">
+                <div className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-800">
+                    <p className="mb-6 text-xs font-medium uppercase tracking-[0.18em]">Trạng thái đơn hàng</p>
+                    {order.status === "cancelled" ? <p className="text-sm text-red-500">Đơn hàng đã được hủy.</p> : <div className="space-y-5">{steps.map((step, index) => { const Icon = step.icon; const active = index <= currentIndex; return <div key={step.key} className="flex items-center gap-4"><div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${active ? "bg-black text-white dark:bg-white dark:text-black" : "bg-neutral-100 text-neutral-400 dark:bg-neutral-800"}`}><Icon size={16} /></div><div className="flex-1"><p className={`text-sm ${active ? "font-medium" : "text-neutral-400"}`}>{step.label}</p><div className="mt-2 h-1 rounded-full bg-neutral-100 dark:bg-neutral-800"><div className={`h-full rounded-full bg-black transition-all dark:bg-white ${active ? "w-full" : "w-0"}`} /></div></div></div>; })}</div>}
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                    <InfoRow label="Thanh toán" value={order.paymentMethod === "stripe" ? "Stripe online" : "Thanh toán khi nhận hàng"} />
+                    <InfoRow label="Tình trạng thanh toán" value={order.paymentStatus === "paid" ? "Đã thanh toán" : "Chưa thanh toán"} />
+                    <InfoRow label="Người nhận" value={order.shippingName || "—"} />
+                    <InfoRow label="Số điện thoại" value={order.shippingPhone || "—"} />
+                    <div className="sm:col-span-2"><InfoRow label="Địa chỉ giao hàng" value={order.shippingAddress || "—"} /></div>
+                </div>
+                <div>
+                    <h3 className="mb-4 text-lg font-light">Sản phẩm</h3>
+                    <div className="divide-y divide-neutral-200 border-y border-neutral-200 dark:divide-neutral-800 dark:border-neutral-800">{(order.items || []).map((item) => <div key={item.id} className="flex items-center gap-3 py-4"><img src={item.thumbnail || "/placeholder-product.svg"} alt={item.productName || item.name || "Sản phẩm"} className="h-14 w-12 object-cover bg-neutral-100 dark:bg-neutral-800" /><div className="min-w-0 flex-1"><p className="truncate text-sm">{item.productName || item.name || "Sản phẩm"}</p><p className="mt-1 text-xs text-neutral-500">Số lượng: {item.quantity}</p></div><span className="text-sm">{formatPrice(Number(item.unitPrice || item.price || 0) * item.quantity)}₫</span></div>)}</div>
+                </div>
+                <div className="space-y-3 border-t border-neutral-200 pt-5 text-sm dark:border-neutral-800"><div className="flex justify-between text-neutral-500"><span>Tạm tính</span><span>{formatPrice(Number(order.subtotal) || 0)}₫</span></div><div className="flex justify-between text-neutral-500"><span>Phí vận chuyển</span><span>{Number(order.shippingFee) ? `${formatPrice(Number(order.shippingFee))}₫` : "Miễn phí"}</span></div>{Number(order.discountAmount) > 0 && <div className="flex justify-between text-emerald-600"><span>Giảm giá {order.discountCode ? `(${order.discountCode})` : ""}</span><span>-{formatPrice(Number(order.discountAmount))}₫</span></div>}<div className="flex justify-between border-t border-neutral-200 pt-4 text-lg dark:border-neutral-800"><span>Tổng thanh toán</span><strong>{formatPrice(Number(order.total) || 0)}₫</strong></div></div>
+                {["pending", "confirmed"].includes(order.status || "") && <button type="button" onClick={() => { onCancel(order.id); onClose(); }} className="w-full border border-red-200 py-3 text-xs uppercase tracking-[0.16em] text-red-500 transition hover:bg-red-50 dark:border-red-900 dark:hover:bg-red-950/30">Hủy đơn hàng</button>}
+            </div>
+        </div>
+    </div>;
 }
 
 function Stat({ label, value }: { label: string; value: string }) {

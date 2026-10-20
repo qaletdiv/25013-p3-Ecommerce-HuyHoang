@@ -18,8 +18,11 @@ const authenticateToken = async (req, res, next) => {
     }
 
     // Nếu không có session, kiểm tra JWT token
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : null;
+    const authHeader = typeof req.headers.authorization === 'string'
+        ? req.headers.authorization.trim()
+        : '';
+    const bearerMatch = authHeader.match(/^Bearer\s+(.+)$/i);
+    const token = bearerMatch?.[1]?.trim() || req.cookies?.token || null;
 
     if (!token) {
         return res.status(401).json({ message: 'Access token is missing' });
@@ -30,14 +33,14 @@ const authenticateToken = async (req, res, next) => {
     jwt.verify(token, jwtSecret, async (err, decoded) => {
         if (err) {
             if (err instanceof jwt.TokenExpiredError) {
-                return res.status(403).json({ message: 'Access token has expired' });
+                return res.status(401).json({ message: 'Access token has expired. Vui lòng đăng nhập lại.' });
             }
-            return res.status(403).json({ message: 'Invalid access token' });
+                return res.status(401).json({ message: 'Invalid access token. Vui lòng đăng nhập lại.' });
         }
 
         const userId = decoded.userId || decoded.id;
         if (!userId) {
-            return res.status(403).json({ message: 'Token không hợp lệ, Thiếu thông tin người dùng' });
+            return res.status(401).json({ message: 'Token không hợp lệ hoặc thiếu thông tin người dùng' });
         }
 
         try {

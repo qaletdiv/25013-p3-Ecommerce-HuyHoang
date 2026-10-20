@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useCart } from "../context/CartContext";
+import { useDispatch, useSelector } from "react-redux";
+import { RootState, AppDispatch } from "../store/store";
+import { removeFromCart, updateQuantity } from "../store/cartSlice";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { formatPrice } from "@/utils/formatPrice";
@@ -12,11 +14,8 @@ export default function CartPage() {
   const [loading, setLoading] =
     useState(true);
 
-  const {
-    cart,
-    removeFromCart,
-    updateQuantity,
-  } = useCart();
+  const dispatch = useDispatch<AppDispatch>();
+  const cart = useSelector((state: RootState) => state.cart.items);
 
   useEffect(() => {
     const user =
@@ -118,10 +117,7 @@ export default function CartPage() {
                 <div className="flex items-center gap-5 mt-8">
                   <button
                     onClick={() =>
-                      updateQuantity(
-                        item.id,
-                        item.quantity - 1
-                      )
+                      dispatch(updateQuantity({ id: item.id, quantity: item.quantity - 1 }))
                     }
                     disabled={item.quantity <= 1}
                     className="w-12 h-12 border"
@@ -135,10 +131,7 @@ export default function CartPage() {
 
                   <button
                     onClick={() =>
-                      updateQuantity(
-                        item.id,
-                        item.quantity + 1
-                      )
+                      dispatch(updateQuantity({ id: item.id, quantity: item.quantity + 1 }))
                     }
                     className="w-12 h-12 border"
                     disabled={item.quantity >= item.stock}
@@ -151,7 +144,7 @@ export default function CartPage() {
 
               <button
                 onClick={() =>
-                  removeFromCart(item.id)
+                  dispatch(removeFromCart(item.id))
                 }
                 className="text-sm text-red-500"
               >

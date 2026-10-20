@@ -3,18 +3,28 @@
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
-import { useCart } from "../context/CartContext";
+import { useSelector } from "react-redux";
+import { jwtDecode } from "jwt-decode";
+import { RootState } from "../store/store";
 import { useTheme } from "../context/ThemeContext";
 import { Search, X } from "lucide-react";
 
+type AuthUser = {
+    id?: string | number;
+    name?: string;
+    username?: string;
+    email?: string;
+    role?: string;
+};
+
 export default function Header() {
     const [open, setOpen] = useState(false);
-    const [user, setUser] = useState<any>(null);
+    const [user, setUser] = useState<AuthUser | null>(null);
     const [query, setQuery] = useState("");
     const [results, setResults] = useState<{ id: string; name: string; slug: string; thumbnail?: string }[]>([]);
 
     const pathname = usePathname();
-    const { cart } = useCart();
+    const cart = useSelector((state: RootState) => state.cart.items);
     const { theme, toggleTheme } = useTheme();
     const isAdminArea = pathname.startsWith("/admin");
     const isAdminUser = user?.role === "admin";
@@ -25,15 +35,38 @@ export default function Header() {
     );
 
     useEffect(() => {
-        const savedUser =
-            localStorage.getItem("user");
+        if (pathname === "/login") {
+            setUser(null);
+            return;
+        }
 
-        if (
-            savedUser &&
-            savedUser !== "undefined"
-        ) {
-            setUser(JSON.parse(savedUser));
-        } else {
+        const savedUser = localStorage.getItem("user");
+        const token = localStorage.getItem("token");
+
+        if (!savedUser || savedUser === "undefined" || !token) {
+            setUser(null);
+            return;
+        }
+
+        try {
+            const decoded = jwtDecode<{ exp?: number }>(token);
+            if (decoded.exp && decoded.exp * 1000 <= Date.now()) {
+                localStorage.removeItem("user");
+                localStorage.removeItem("token");
+                document.cookie = "token=; Max-Age=0; path=/";
+                setUser(null);
+                return;
+            }
+
+            const parsedUser: unknown = JSON.parse(savedUser);
+            if (!parsedUser || typeof parsedUser !== "object") {
+                throw new Error("Invalid user data");
+            }
+            setUser(parsedUser as AuthUser);
+        } catch {
+            localStorage.removeItem("user");
+            localStorage.removeItem("token");
+            document.cookie = "token=; Max-Age=0; path=/";
             setUser(null);
         }
     }, [pathname]);

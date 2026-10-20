@@ -5,9 +5,10 @@ import "./globals.css";
 import Header from "./components/header";
 import Footer from "./components/footer";
 import SiteBanner from "./components/siteBanner";
-import { CartProvider } from "./context/CartContext";
 import { ToastProvider } from "./context/ToastContext";
 import { ThemeProvider } from "./context/ThemeContext";
+import StoreProvider from "./store/StoreProvider";
+import CartPersistence from "./store/CartPersistence";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -36,18 +37,20 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col bg-white text-black">
         <ThemeProvider>
-          <CartProvider>
+          <StoreProvider>
             <ToastProvider>
-              <Header />
-              <SiteBanner />
+              <CartPersistence>
+                <Header />
+                <SiteBanner />
 
-              <main className="flex-1">
-                {children}
-              </main>
+                <main className="flex-1">
+                  {children}
+                </main>
 
-              <Footer />
+                <Footer />
+              </CartPersistence>
             </ToastProvider>
-          </CartProvider>
+          </StoreProvider>
         </ThemeProvider>
       </body>
     </html>
